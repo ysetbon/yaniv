@@ -1,0 +1,43 @@
+.game-board {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.ai-status {
+  background: #f0f0f0;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.model-loaded {
+  color: green;
+  font-weight: bold;
+}
+
+.ai-thinking {
+  color: blue;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.opponent-area, .player-area {
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.round-end {
+  text-align: center;
+  margin-top: 20px;
+}

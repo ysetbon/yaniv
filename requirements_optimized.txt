@@ -1,0 +1,17 @@
+# Requirements for optimized Yaniv AI training
+
+# Core dependencies
+numpy>=1.19.0
+numba>=0.53.0
+
+# Performance monitoring
+psutil>=5.8.0
+
+# Progress tracking
+tqdm>=4.60.0
+
+# Visualization
+matplotlib>=3.3.0
+
+# Optional but recommended for better multiprocessing
+dill>=0.3.4

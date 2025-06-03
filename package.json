@@ -1,0 +1,41 @@
+{
+  "name": "yaniv-card-game",
+  "version": "1.0.0",
+  "description": "A web-based implementation of the Yaniv card game",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "train": "node train.js",
+    "train:compiled": "node dist/train-cli.js",
+    "train:continue": "npx ts-node src/train-continue.ts",
+    "train:alt": "node --loader tsx src/train-cli.ts",
+    "train:ts": "node -r ts-node/register src/train-cli.ts",
+    "load-model": "node --loader tsx src/load-model.ts"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@types/node": "^22.15.29",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
+  }
+}
