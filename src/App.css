@@ -1,10 +1,6 @@
 .app {
   width: 100%;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
 }
 
 /* Start Screen Styles */
@@ -213,35 +209,36 @@
 .card {
   width: 80px;
   height: 112px;
-  background: var(--card-white);
-  border: 2px solid #333;
-  border-radius: 8px;
+  background: white;
+  border: 2px solid #1e293b;
+  border-radius: 10px;
   position: relative;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 2px 5px var(--card-shadow);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px var(--card-shadow);
+  transform: translateY(-8px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .card.selected {
-  transform: translateY(-10px);
-  box-shadow: 0 0 20px var(--accent);
-  border-color: var(--accent);
+  transform: translateY(-12px);
+  box-shadow: 0 0 25px #fbbf24;
+  border-color: #fbbf24;
+  border-width: 3px;
 }
 
 .card.red {
-  color: #e74c3c;
+  color: #dc2626;
 }
 
 .card.black {
-  color: #2c3e50;
+  color: #1e293b;
 }
 
 .card-corner {

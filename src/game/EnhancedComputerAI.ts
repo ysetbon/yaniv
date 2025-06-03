@@ -2,19 +2,45 @@ import { Card, GameState } from '../types/game';
 import { CardUtils } from './Card';
 import { ComputerAI } from './ComputerAI';
 import { NeuralNetworkAI } from './NeuralNetworkAI';
+import { PythonTrainedAI } from './PythonTrainedAI';
 
-export type AIMode = 'rule-based' | 'neural-network' | 'hybrid';
+export type AIMode = 'rule-based' | 'neural-network' | 'python-trained' | 'hybrid';
 
 export class EnhancedComputerAI {
   private neuralAI: NeuralNetworkAI | null = null;
+  private pythonAI: PythonTrainedAI | null = null;
   private mode: AIMode;
+  private initPromise: Promise<void> | null = null;
   // private hybridThreshold = 0.7; // Confidence threshold for hybrid mode
   
   constructor(mode: AIMode = 'hybrid') {
     this.mode = mode;
-    if (mode === 'neural-network' || mode === 'hybrid') {
-      this.initializeNeuralNetwork();
+    this.initPromise = this.initialize();
+  }
+  
+  private async initialize() {
+    if (this.mode === 'neural-network' || this.mode === 'hybrid') {
+      await this.initializeNeuralNetwork();
     }
+    if (this.mode === 'python-trained') {
+      await this.initializePythonAI();
+    }
+  }
+  
+  async waitForInit(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
+  }
+  
+  isReady(): boolean {
+    if (this.mode === 'python-trained') {
+      return this.pythonAI !== null;
+    }
+    if (this.mode === 'neural-network' || this.mode === 'hybrid') {
+      return this.neuralAI !== null;
+    }
+    return true; // rule-based is always ready
   }
   
   private async initializeNeuralNetwork() {
@@ -26,6 +52,19 @@ export class EnhancedComputerAI {
       console.log('Loaded pre-trained neural network model: yaniv-trained-10000');
     } catch (error) {
       console.log('No pre-trained model found, using untrained network');
+    }
+  }
+  
+  private async initializePythonAI() {
+    try {
+      this.pythonAI = new PythonTrainedAI();
+      
+      // Try to load your Python-trained model
+      await this.pythonAI.loadModel('/saved_networks/best_overall_optimized.json');
+      console.log('Loaded Python-trained AI model: best_overall_optimized');
+    } catch (error) {
+      console.error('Failed to initialize or load Python-trained model:', error);
+      this.pythonAI = null;
     }
   }
   
@@ -64,6 +103,49 @@ export class EnhancedComputerAI {
         return decision;
       } catch (error) {
         console.error('Neural network decision failed, falling back to rule-based', error);
+        const opponentHandSize = gameState?.players?.find(p => p.id !== playerId)?.hand.length;
+        return ComputerAI.makeDecision(hand, discardPile, canCallYaniv, turnPhase || 'discard', opponentHandSize);
+      }
+    }
+    
+    if (this.mode === 'python-trained') {
+      if (!this.pythonAI) {
+        console.warn('Python AI not initialized, falling back to rule-based');
+        const opponentHandSize = gameState?.players?.find(p => p.id !== playerId)?.hand.length;
+        return ComputerAI.makeDecision(hand, discardPile, canCallYaniv, turnPhase || 'discard', opponentHandSize);
+      }
+      
+      if (!gameState || !playerId) {
+        console.warn('Missing gameState or playerId for Python AI, falling back to rule-based');
+        const opponentHandSize = gameState?.players?.find(p => p.id !== playerId)?.hand.length;
+        return ComputerAI.makeDecision(hand, discardPile, canCallYaniv, turnPhase || 'discard', opponentHandSize);
+      }
+      
+      try {
+        console.log('[Python Trained AI] Making decision...');
+        const playerIndex = gameState.players?.findIndex(p => p.id === playerId) ?? 0;
+        const decision = this.pythonAI.makeMove(gameState as GameState, playerIndex);
+        console.log('[Python Trained AI] Decision:', decision.action);
+        
+        // Convert PythonTrainedAI format to EnhancedComputerAI format
+        if (decision.action === 'yaniv') {
+          return { action: 'yaniv' };
+        } else if (decision.action === 'draw') {
+          return { 
+            action: 'draw', 
+            drawSource: decision.source || 'deck' 
+          };
+        } else if (decision.action === 'discard' && decision.cards) {
+          return { 
+            action: 'discard', 
+            cardsToDiscard: decision.cards 
+          };
+        }
+        
+        // Fallback if invalid decision
+        throw new Error('Invalid Python AI decision');
+      } catch (error) {
+        console.error('Python AI decision failed, falling back to rule-based', error);
         const opponentHandSize = gameState?.players?.find(p => p.id !== playerId)?.hand.length;
         return ComputerAI.makeDecision(hand, discardPile, canCallYaniv, turnPhase || 'discard', opponentHandSize);
       }
@@ -119,11 +201,12 @@ export class EnhancedComputerAI {
     return ComputerAI.selectDiscard(hand, requiredValue);
   }
   
-  setMode(mode: AIMode) {
+  async setMode(mode: AIMode) {
     this.mode = mode;
-    if ((mode === 'neural-network' || mode === 'hybrid') && !this.neuralAI) {
-      this.initializeNeuralNetwork();
-    }
+    this.neuralAI = null;
+    this.pythonAI = null;
+    this.initPromise = this.initialize();
+    await this.initPromise;
   }
   
   getMode(): AIMode {

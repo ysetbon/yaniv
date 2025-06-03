@@ -45,7 +45,9 @@ export class YanivGame {
       roundNumber: 1,
       turnPhase: 'discard',
       lastDiscardPlayerId: players[1].id,  // Pretend player 2 discarded it
-      lastOpponentDiscards
+      lastOpponentDiscards,
+      scores: players.reduce((acc, p) => ({ ...acc, [p.id]: p.score }), {}),
+      targetScore: 101
     };
   }
 
@@ -301,5 +303,27 @@ export class YanivGame {
       default:
         return false;
     }
+  }
+
+  // Helper methods for the UI
+  drawCards(playerId: string, source: 'deck' | 'discard'): Card[] {
+    if (source === 'deck') {
+      return this.drawFromDeck(playerId);
+    } else {
+      return this.drawFromDiscard(playerId);
+    }
+  }
+
+  discardCards(playerId: string, cards: Card[]): boolean {
+    return this.discard(playerId, cards);
+  }
+
+  canDiscardCards(cards: Card[]): boolean {
+    return CardUtils.isValidDiscard(cards);
+  }
+
+  // Public access to startNewRound for UI
+  public newRound(): void {
+    this.startNewRound();
   }
 }

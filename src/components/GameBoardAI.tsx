@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { YanivGame } from '../game/Game';
 import { EnhancedComputerAI } from '../game/EnhancedComputerAI';
 import { Card, GameState } from '../types/game';
+import { CardUtils } from '../game/Card';
 import { PlayerHand } from './PlayerHand';
 import { DiscardPile } from './DiscardPile';
 import { ScoreBoard } from './ScoreBoard';
@@ -10,11 +11,12 @@ import { GameLog, LogEntry } from './GameLog';
 import './GameBoardAI.css';
 
 export default function GameBoardAI() {
+  console.log('GameBoardAI component rendering');
   const [game, setGame] = useState<YanivGame | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [ai, setAI] = useState<EnhancedComputerAI | null>(null);
-  const [aiMode, setAIMode] = useState<'rule-based' | 'neural-network' | 'hybrid'>('rule-based');
+  const [aiMode, setAIMode] = useState<'rule-based' | 'neural-network' | 'python-trained' | 'hybrid'>('neural-network');
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [gameLog, setGameLog] = useState<LogEntry[]>([]);
@@ -27,9 +29,17 @@ export default function GameBoardAI() {
 
   // Initialize game
   useEffect(() => {
-    const newGame = new YanivGame(['You', 'AI Opponent']);
-    setGame(newGame);
-    setGameState(newGame.getState());
+    console.log('Initializing game...');
+    try {
+      const newGame = new YanivGame(['You', 'AI Opponent']);
+      console.log('Game created:', newGame);
+      setGame(newGame);
+      const state = newGame.getState();
+      console.log('Game state:', state);
+      setGameState(state);
+    } catch (error) {
+      console.error('Error initializing game:', error);
+    }
   }, []);
 
   // Initialize AI
@@ -38,23 +48,47 @@ export default function GameBoardAI() {
       console.log('Initializing AI with mode:', aiMode);
       const newAI = new EnhancedComputerAI(aiMode);
       
-      // Wait for AI initialization
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for AI initialization to complete
+      await newAI.waitForInit();
       
-      // Try to load the trained model
-      if (newAI['neuralAI']) {
-        try {
-          const loaded = await newAI['neuralAI'].loadModel('/models/yaniv-ai-model-final/model.json');
-          setModelLoaded(loaded);
-          console.log('Trained AI model loaded:', loaded);
-        } catch (error) {
-          console.error('Error loading model:', error);
-          setModelLoaded(false);
+      // Check if AI is ready
+      const isReady = newAI.isReady();
+      setModelLoaded(isReady);
+      
+      if (isReady) {
+        console.log(`${aiMode} AI initialized successfully`);
+        
+        let modeDetails = '';
+        switch (aiMode) {
+          case 'python-trained':
+            modeDetails = '🎯 Using Python-trained AI (Your Model)';
+            break;
+          case 'neural-network':
+            modeDetails = '🧠 Using Neural Network AI (TensorFlow.js)';
+            break;
+          case 'rule-based':
+            modeDetails = '📋 Using Rule-based AI';
+            break;
+          case 'hybrid':
+            modeDetails = '🔀 Using Hybrid AI (Neural + Rules)';
+            break;
         }
+        
+        addLogEntry({
+          player: 'System',
+          action: 'AI Mode',
+          details: modeDetails
+        });
+      } else {
+        console.error(`Failed to initialize ${aiMode} AI`);
+        addLogEntry({
+          player: 'System',
+          action: 'AI Error',
+          details: `Failed to load ${aiMode} AI model`
+        });
       }
       
       setAI(newAI);
-      console.log('AI initialized');
     };
     
     initAI();
@@ -157,7 +191,7 @@ export default function GameBoardAI() {
       setSelectedCards([]);
       setGameState(game.getState());
     } catch (error) {
-      alert(error.message);
+      alert(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
@@ -183,7 +217,7 @@ export default function GameBoardAI() {
       }
       setGameState(game.getState());
     } catch (error) {
-      alert(error.message);
+      alert(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
@@ -204,7 +238,7 @@ export default function GameBoardAI() {
       game.callYaniv(currentPlayer.id);
       setGameState(game.getState());
     } catch (error) {
-      alert(error.message);
+      alert(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
@@ -216,10 +250,13 @@ export default function GameBoardAI() {
   };
 
   if (!gameState || !game) {
+    console.log('Game not initialized yet:', { game, gameState });
     return (
-      <div className="loading">
+      <div style={{ padding: '20px', background: 'white', color: 'black', minHeight: '200px' }}>
         <h2>Loading game...</h2>
         <p>Initializing AI opponent...</p>
+        <p>Game: {game ? 'loaded' : 'not loaded'}</p>
+        <p>GameState: {gameState ? 'loaded' : 'not loaded'}</p>
       </div>
     );
   }
@@ -230,85 +267,140 @@ export default function GameBoardAI() {
 
   return (
     <div className="game-board">
-      <GameLog entries={gameLog} />
-      
-      <div className="ai-status">
-        <h3>AI Mode: {aiMode}</h3>
-        {modelLoaded && <span className="model-loaded">✓ Trained Model Loaded</span>}
-        {isAIThinking && <span className="ai-thinking">AI is thinking...</span>}
-        
-        <select value={aiMode} onChange={(e) => setAIMode(e.target.value as any)}>
-          <option value="rule-based">Rule-based AI</option>
-          <option value="neural-network">Neural Network AI</option>
-          <option value="hybrid">Hybrid AI (Recommended)</option>
-        </select>
+      <div className="game-header">
+        <h1>Yaniv Card Game</h1>
+        <div className="ai-mode-selector">
+          <label>AI Mode:</label>
+          <select 
+            value={aiMode} 
+            onChange={(e) => setAIMode(e.target.value as any)}
+            className="ai-select"
+          >
+            <option value="rule-based">Rule-based AI</option>
+            <option value="neural-network">Neural Network AI (TensorFlow.js)</option>
+            <option value="python-trained">🎯 Python-trained AI (Your Model)</option>
+            <option value="hybrid">Hybrid AI (Recommended)</option>
+          </select>
+          {modelLoaded && <span className="model-status">✓ Ready</span>}
+          {aiMode === 'python-trained' && !modelLoaded && (
+            <span className="model-loading">Loading...</span>
+          )}
+        </div>
       </div>
 
-      <ScoreBoard players={gameState.players} currentPlayerIndex={gameState.currentPlayerIndex} />
-      
-      {/* AI Opponent's Hand */}
-      {aiPlayer && (
-        <div className="opponent-area">
-          <h3>AI Opponent</h3>
-          <PlayerHand
-            player={aiPlayer}
-            isCurrentPlayer={!isHumanTurn}
-            onCardSelect={() => {}}
-            selectedCards={[]}
-            showCards={false}
-          />
+      <div className="game-layout">
+        <div className="left-panel">
+          <ScoreBoard players={gameState.players} currentPlayerId={gameState.players[gameState.currentPlayerIndex].id} />
+          <GameLog entries={gameLog} />
         </div>
-      )}
 
-      <DiscardPile cards={gameState.discardPile} />
+        <div className="game-table">
+          {/* AI Opponent's Hand at the top */}
+          {aiPlayer && (
+            <div className="ai-opponent-area">
+              <div className="player-label">
+                <h3>{aiPlayer.name}</h3>
+                {isAIThinking && <span className="thinking-indicator">Thinking...</span>}
+              </div>
+              <PlayerHand
+                player={aiPlayer}
+                isCurrentTurn={!isHumanTurn}
+                onCardSelect={() => {}}
+                selectedCards={[]}
+                drawnCards={[]}
+                showCards={false}
+              />
+            </div>
+          )}
 
-      {/* Human Player's Hand */}
-      {humanPlayer && (
-        <div className="player-area">
-          <h3>Your Hand</h3>
-          <PlayerHand
-            player={humanPlayer}
-            isCurrentPlayer={isHumanTurn}
-            onCardSelect={(card) => {
-              if (!isHumanTurn) return;
-              
-              const isSelected = selectedCards.some(c => 
-                c.suit === card.suit && c.rank === card.rank
-              );
-              
-              if (isSelected) {
-                setSelectedCards(selectedCards.filter(c => 
-                  !(c.suit === card.suit && c.rank === card.rank)
-                ));
-              } else {
-                setSelectedCards([...selectedCards, card]);
-              }
-            }}
-            selectedCards={selectedCards}
-            showCards={true}
-          />
+          {/* Center area with deck and discard pile */}
+          <div className="table-center">
+            <div className="deck-container">
+              <div 
+                className={`deck ${isHumanTurn && gameState.turnPhase === 'draw' ? 'drawable' : ''}`}
+                onClick={() => isHumanTurn && gameState.turnPhase === 'draw' && handleDraw('deck')}
+              >
+                <div className="card-stack">
+                  <div className="card card-back"></div>
+                  <div className="card card-back"></div>
+                  <div className="card card-back"></div>
+                </div>
+                <span className="deck-count">{gameState.deck.length} cards</span>
+              </div>
+            </div>
+
+            <DiscardPile 
+              opponentCard={gameState.discardPile.length > 0 ? gameState.discardPile[gameState.discardPile.length - 1] : null}
+              totalCards={gameState.discardPile.length}
+              onDrawCard={() => handleDraw('discard')}
+              canDraw={isHumanTurn && gameState.turnPhase === 'draw'}
+              isDrawPhase={gameState.turnPhase === 'draw'}
+              isHumanTurn={isHumanTurn}
+            />
+          </div>
+
+          {/* Human Player's Hand at the bottom */}
+          {humanPlayer && (
+            <div className="human-player-area">
+              <PlayerHand
+                player={humanPlayer}
+                isCurrentTurn={isHumanTurn}
+                onCardSelect={(card) => {
+                  if (!isHumanTurn) return;
+                  
+                  const isSelected = selectedCards.some(c => 
+                    c.suit === card.suit && c.rank === card.rank
+                  );
+                  
+                  if (isSelected) {
+                    setSelectedCards(selectedCards.filter(c => 
+                      !(c.suit === card.suit && c.rank === card.rank)
+                    ));
+                  } else {
+                    setSelectedCards([...selectedCards, card]);
+                  }
+                }}
+                selectedCards={selectedCards}
+                drawnCards={[]}
+                showCards={true}
+              />
+              <div className="player-label">
+                <h3>Your Hand</h3>
+                <span className="hand-value">Value: {CardUtils.getHandValue(humanPlayer.hand)}</span>
+              </div>
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
 
       {isHumanTurn && (
         <GameControls
+          currentPlayer={humanPlayer}
+          canDiscard={selectedCards.length > 0 && game.canDiscardCards(selectedCards)}
+          canCallYaniv={game.canCallYaniv(humanPlayer.id)}
           onDiscard={handleDiscard}
-          onDrawFromDeck={() => handleDraw('deck')}
-          onDrawFromDiscard={() => handleDraw('discard')}
           onCallYaniv={handleYaniv}
-          canCallYaniv={humanPlayer ? game.canCallYaniv(humanPlayer.id) : false}
-          turnPhase={gameState.turnPhase || 'discard'}
-          hasSelectedCards={selectedCards.length > 0}
+          turnPhase={gameState.turnPhase}
         />
       )}
 
       {gameState.gamePhase === 'roundEnd' && (
-        <div className="round-end">
-          <h2>Round Over!</h2>
-          <button onClick={handleNewGame}>New Game</button>
+        <div className="round-end-modal">
+          <div className="modal-content">
+            <h2>Round Over!</h2>
+            <div className="round-results">
+              {gameState.players.map(player => (
+                <div key={player.id} className="player-result">
+                  <span>{player.name}</span>
+                  <span>{player.score} points</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={handleNewGame} className="new-game-btn">New Game</button>
+          </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -2,6 +2,7 @@ export type Suit = '♠' | '♥' | '♦' | '♣';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 
 export interface Card {
+  id?: string;
   suit: Suit;
   rank: Rank;
   value: number;
@@ -27,6 +28,9 @@ export interface GameState {
   turnPhase?: 'discard' | 'draw';
   lastDiscardPlayerId?: string;
   lastOpponentDiscards: Map<string, Card[]>; // Track last discard for each player
+  scores: Record<string, number>;
+  targetScore: number;
+  roundWinner?: string;
 }
 
 export interface GameAction {

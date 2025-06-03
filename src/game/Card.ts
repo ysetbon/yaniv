@@ -3,6 +3,7 @@ import { Card, Rank, Suit } from '../types/game';
 export class CardUtils {
   static create(suit: Suit, rank: Rank): Card {
     return {
+      id: `${suit}-${rank}`,
       suit,
       rank,
       value: this.getRankValue(rank)

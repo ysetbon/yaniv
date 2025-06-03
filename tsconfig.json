@@ -17,5 +17,6 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
+  "exclude": ["src/train-cli.ts", "src/train-continue.ts", "src/load-model.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
