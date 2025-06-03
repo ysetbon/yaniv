@@ -1,0 +1,15 @@
+{
+  "games_played": 514980,
+  "win_rate": 0.5883840149132005,
+  "learned_threshold": 4.0,
+  "smart_discard_rate": 0.6470793245222718,
+  "unique_states": 9625,
+  "discoveries": [
+    "yaniv_under_5",
+    "play_set",
+    "play_pair",
+    "play_run",
+    "draw_discard_for_pairs"
+  ],
+  "timestamp": "2025-06-03T21:54:48.788764"
+}

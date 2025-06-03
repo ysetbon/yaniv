@@ -1,0 +1,10 @@
+{
+  "method": "Bulletproof Evolutionary Training",
+  "generations": 10,
+  "variants_per_generation": 5,
+  "starting_performance": 0.729,
+  "final_performance": 0.7852576278394683,
+  "improvement": 0.056257627839468305,
+  "model_file": "bulletproof_enhanced_model_1748970238.json",
+  "training_time": "2.0 seconds"
+}

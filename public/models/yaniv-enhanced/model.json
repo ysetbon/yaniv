@@ -1,0 +1,85 @@
+{
+  "modelTopology": {
+    "class_name": "Sequential",
+    "config": {
+      "name": "enhanced_yaniv_final",
+      "layers": [
+        {
+          "class_name": "InputLayer",
+          "config": {
+            "batch_input_shape": [
+              null,
+              11
+            ],
+            "dtype": "float32",
+            "sparse": false,
+            "name": "input"
+          }
+        },
+        {
+          "class_name": "Dense",
+          "config": {
+            "name": "dense",
+            "trainable": true,
+            "dtype": "float32",
+            "units": 64,
+            "activation": "relu",
+            "use_bias": true
+          }
+        },
+        {
+          "class_name": "Dense",
+          "config": {
+            "name": "output",
+            "trainable": true,
+            "dtype": "float32",
+            "units": 16,
+            "activation": "softmax",
+            "use_bias": true
+          }
+        }
+      ]
+    }
+  },
+  "format": "layers-model",
+  "generatedBy": "Enhanced AI Training v2",
+  "weightsManifest": [
+    {
+      "paths": [
+        "weights.bin"
+      ],
+      "weights": [
+        {
+          "name": "dense/kernel",
+          "shape": [
+            11,
+            64
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense/bias",
+          "shape": [
+            64
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "output/kernel",
+          "shape": [
+            64,
+            16
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "output/bias",
+          "shape": [
+            16
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

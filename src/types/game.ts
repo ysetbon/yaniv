@@ -49,3 +49,10 @@ export interface DiscardAction {
   cards: Card[];
   isValid: boolean;
 }
+
+export type AIType = 'rule-based' | 'neural-network' | 'python-trained' | 'hybrid' | 'enhanced-neural';
+
+export interface AIPlayer {
+  type: AIType;
+  makeMove(gameState: GameState): Promise<any>;
+}

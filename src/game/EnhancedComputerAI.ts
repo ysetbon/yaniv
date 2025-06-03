@@ -3,17 +3,19 @@ import { CardUtils } from './Card';
 import { ComputerAI } from './ComputerAI';
 import { NeuralNetworkAI } from './NeuralNetworkAI';
 import { PythonTrainedAI } from './PythonTrainedAI';
+import { EnhancedNeuralNetworkAI } from './EnhancedNeuralNetworkAI';
 
-export type AIMode = 'rule-based' | 'neural-network' | 'python-trained' | 'hybrid';
+export type AIMode = 'rule-based' | 'neural-network' | 'python-trained' | 'hybrid' | 'enhanced-neural';
 
 export class EnhancedComputerAI {
   private neuralAI: NeuralNetworkAI | null = null;
   private pythonAI: PythonTrainedAI | null = null;
+  private enhancedAI: EnhancedNeuralNetworkAI | null = null;
   private mode: AIMode;
   private initPromise: Promise<void> | null = null;
   // private hybridThreshold = 0.7; // Confidence threshold for hybrid mode
   
-  constructor(mode: AIMode = 'hybrid') {
+  constructor(mode: AIMode = 'enhanced-neural') {
     this.mode = mode;
     this.initPromise = this.initialize();
   }
@@ -24,6 +26,9 @@ export class EnhancedComputerAI {
     }
     if (this.mode === 'python-trained') {
       await this.initializePythonAI();
+    }
+    if (this.mode === 'enhanced-neural') {
+      await this.initializeEnhancedAI();
     }
   }
   
@@ -39,6 +44,9 @@ export class EnhancedComputerAI {
     }
     if (this.mode === 'neural-network' || this.mode === 'hybrid') {
       return this.neuralAI !== null;
+    }
+    if (this.mode === 'enhanced-neural') {
+      return this.enhancedAI !== null;
     }
     return true; // rule-based is always ready
   }
@@ -65,6 +73,16 @@ export class EnhancedComputerAI {
     } catch (error) {
       console.error('Failed to initialize or load Python-trained model:', error);
       this.pythonAI = null;
+    }
+  }
+  
+  private async initializeEnhancedAI() {
+    try {
+      this.enhancedAI = new EnhancedNeuralNetworkAI();
+      console.log('Enhanced Neural Network AI initialized');
+    } catch (error) {
+      console.error('Failed to initialize Enhanced Neural Network AI:', error);
+      this.enhancedAI = null;
     }
   }
   
@@ -151,6 +169,23 @@ export class EnhancedComputerAI {
       }
     }
     
+    if (this.mode === 'enhanced-neural') {
+      if (!this.enhancedAI) {
+        this.enhancedAI = new EnhancedNeuralNetworkAI();
+      }
+      
+      try {
+        console.log('[Enhanced Neural Network AI] Making decision...');
+        const decision = await this.enhancedAI.makeDecision(hand, discardPile, gameState, playerId);
+        console.log('[Enhanced Neural Network AI] Decision:', decision);
+        return decision;
+      } catch (error) {
+        console.error('Enhanced AI failed, using rule-based fallback', error);
+        const opponentHandSize = gameState?.players?.find(p => p.id !== playerId)?.hand.length;
+        return ComputerAI.makeDecision(hand, discardPile, canCallYaniv, turnPhase || 'discard', opponentHandSize);
+      }
+    }
+    
     if (this.mode === 'hybrid' && this.neuralAI && gameState && playerId) {
       try {
         // Get decisions from both systems
@@ -205,6 +240,7 @@ export class EnhancedComputerAI {
     this.mode = mode;
     this.neuralAI = null;
     this.pythonAI = null;
+    this.enhancedAI = null;
     this.initPromise = this.initialize();
     await this.initPromise;
   }

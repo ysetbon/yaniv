@@ -1,0 +1,17 @@
+{
+  "performance": 0.88,
+  "parameters": {
+    "yaniv_threshold": 5.916912554308002,
+    "yaniv_aggression": 1.2354593562930836,
+    "combo_preference": 0.8022762116992601,
+    "high_card_bias": 2.293542788592216,
+    "draw_deck_preference": 0.9259056770174645,
+    "risk_tolerance": 0.8949872800390929,
+    "endgame_threshold": 1.6888009110279827,
+    "pair_value": 0.32238329055446086,
+    "run_value": 0.554618730385704,
+    "opponent_awareness": 0.4631790546096047
+  },
+  "training_time": "10 minutes",
+  "timestamp": "2025-06-03T20:55:22.658028"
+}

@@ -16,7 +16,7 @@ export default function GameBoardAI() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [ai, setAI] = useState<EnhancedComputerAI | null>(null);
-  const [aiMode, setAIMode] = useState<'rule-based' | 'neural-network' | 'python-trained' | 'hybrid'>('neural-network');
+  const [aiMode, setAIMode] = useState<'rule-based' | 'neural-network' | 'python-trained' | 'hybrid' | 'enhanced-neural'>('enhanced-neural');
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [gameLog, setGameLog] = useState<LogEntry[]>([]);
@@ -60,6 +60,9 @@ export default function GameBoardAI() {
         
         let modeDetails = '';
         switch (aiMode) {
+          case 'enhanced-neural':
+            modeDetails = '🚀 Using Enhanced Neural Network AI (Deep Learning)';
+            break;
           case 'python-trained':
             modeDetails = '🎯 Using Python-trained AI (Your Model)';
             break;
@@ -276,10 +279,11 @@ export default function GameBoardAI() {
             onChange={(e) => setAIMode(e.target.value as any)}
             className="ai-select"
           >
+            <option value="enhanced-neural">🚀 Enhanced Neural AI (Default)</option>
             <option value="rule-based">Rule-based AI</option>
             <option value="neural-network">Neural Network AI (TensorFlow.js)</option>
             <option value="python-trained">🎯 Python-trained AI (Your Model)</option>
-            <option value="hybrid">Hybrid AI (Recommended)</option>
+            <option value="hybrid">Hybrid AI</option>
           </select>
           {modelLoaded && <span className="model-status">✓ Ready</span>}
           {aiMode === 'python-trained' && !modelLoaded && (
