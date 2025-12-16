@@ -1,0 +1,597 @@
+"""
+Export trained models to TypeScript format.
+
+Two export paths:
+1. JSON weights for custom TS forward pass (recommended)
+2. TensorFlow.js format (requires tfjs converter)
+"""
+
+import json
+import os
+import numpy as np
+from typing import Dict, Any, Optional
+
+from .genome import Genome
+from .model import ActionValueNet
+
+
+def export_to_json(
+    genome: Genome,
+    output_path: str,
+    include_metadata: bool = True
+) -> None:
+    """
+    Export genome weights to JSON format for TypeScript.
+
+    The JSON contains:
+    - Architecture info (dims)
+    - Weight matrices as nested arrays
+    - Encoding info for TS to reconstruct
+
+    Args:
+        genome: Trained genome to export
+        output_path: Path for output JSON file
+        include_metadata: Include training metadata
+    """
+    weights = genome.get_weights()
+
+    export_data = {
+        "version": "1.0",
+        "architecture": {
+            "type": "action_value_net",
+            "input_dim": genome.input_dim,
+            "hidden_dim": genome.hidden_dim,
+            "hidden_dim2": genome.hidden_dim2,
+            "output_dim": 1
+        },
+        "encoding": {
+            "state_dim": 219,  # 52 hand + 156 discards + 5 scalars + 6 opponents
+            "action_dim": 62,  # 4 type + 2 source + 52 mask + 4 scalars
+            "num_cards": 52,
+            "suit_order": ["♠", "♥", "♦", "♣"],
+            "rank_order": ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+        },
+        "weights": {
+            "layer1": {
+                "weight": weights["w1"].tolist(),
+                "bias": weights["b1"].tolist()
+            },
+            "layer2": {
+                "weight": weights["w2"].tolist(),
+                "bias": weights["b2"].tolist()
+            },
+            "layer3": {
+                "weight": weights["w3"].tolist(),
+                "bias": weights["b3"].tolist()
+            }
+        }
+    }
+
+    if include_metadata:
+        export_data["metadata"] = {
+            "genome_id": genome.genome_id,
+            "fitness": genome.fitness,
+            "generation": genome.generation,
+            "wins": genome.wins,
+            "games_played": genome.games_played
+        }
+
+    with open(output_path, "w") as f:
+        json.dump(export_data, f, indent=2)
+
+    print(f"Model exported to {output_path}")
+    print(f"  Input dim: {genome.input_dim}")
+    print(f"  Hidden dims: {genome.hidden_dim} -> {genome.hidden_dim2}")
+    print(f"  Total parameters: {sum(w.size for w in weights.values())}")
+
+
+def generate_typescript_loader(output_path: str) -> None:
+    """
+    Generate TypeScript code for loading and using the exported model.
+    """
+    ts_code = '''/**
+ * GA-Trained Yaniv AI - TypeScript Implementation
+ *
+ * This file provides the ActionValueNet model and policy for running
+ * the GA-trained neural network in TypeScript.
+ */
+
+import { Card, GameState, Player } from '../types/game';
+import { CardUtils } from './Card';
+
+// Type definitions
+interface ModelWeights {
+  layer1: { weight: number[][]; bias: number[] };
+  layer2: { weight: number[][]; bias: number[] };
+  layer3: { weight: number[][]; bias: number[] };
+}
+
+interface ModelConfig {
+  version: string;
+  architecture: {
+    type: string;
+    input_dim: number;
+    hidden_dim: number;
+    hidden_dim2: number;
+    output_dim: number;
+  };
+  encoding: {
+    state_dim: number;
+    action_dim: number;
+    num_cards: number;
+    suit_order: string[];
+    rank_order: string[];
+  };
+  weights: ModelWeights;
+  metadata?: {
+    genome_id: string;
+    fitness: number;
+    generation: number;
+    wins: number;
+    games_played: number;
+  };
+}
+
+// Action representation
+interface YanivAction {
+  type: 'discard' | 'yaniv';
+  discardCards?: Card[];
+  drawSource?: 'deck' | 'discard';
+}
+
+/**
+ * ActionValueNet - Scores (state, action) pairs
+ */
+export class GATrainedAI {
+  private weights: ModelWeights;
+  private config: ModelConfig;
+  private suitOrder: string[];
+  private rankOrder: string[];
+
+  constructor(modelJson: ModelConfig) {
+    this.config = modelJson;
+    this.weights = modelJson.weights;
+    this.suitOrder = modelJson.encoding.suit_order;
+    this.rankOrder = modelJson.encoding.rank_order;
+  }
+
+  /**
+   * Forward pass through the network
+   */
+  private forward(input: number[]): number {
+    // Layer 1: input -> hidden1 (ReLU)
+    let h1 = this.matmul(input, this.weights.layer1.weight);
+    h1 = this.addBias(h1, this.weights.layer1.bias);
+    h1 = this.relu(h1);
+
+    // Layer 2: hidden1 -> hidden2 (ReLU)
+    let h2 = this.matmul(h1, this.weights.layer2.weight);
+    h2 = this.addBias(h2, this.weights.layer2.bias);
+    h2 = this.relu(h2);
+
+    // Layer 3: hidden2 -> output
+    let out = this.matmul(h2, this.weights.layer3.weight);
+    out = this.addBias(out, this.weights.layer3.bias);
+
+    return out[0];
+  }
+
+  private matmul(vec: number[], mat: number[][]): number[] {
+    const result: number[] = [];
+    for (let j = 0; j < mat[0].length; j++) {
+      let sum = 0;
+      for (let i = 0; i < vec.length; i++) {
+        sum += vec[i] * mat[i][j];
+      }
+      result.push(sum);
+    }
+    return result;
+  }
+
+  private addBias(vec: number[], bias: number[]): number[] {
+    return vec.map((v, i) => v + bias[i]);
+  }
+
+  private relu(vec: number[]): number[] {
+    return vec.map(v => Math.max(0, v));
+  }
+
+  /**
+   * Convert card to 0-51 index
+   */
+  private cardToIndex(card: Card): number {
+    const suitIdx = this.suitOrder.indexOf(card.suit);
+    const rankIdx = this.rankOrder.indexOf(card.rank);
+    return suitIdx * 13 + rankIdx;
+  }
+
+  /**
+   * Encode game state
+   */
+  private encodeState(
+    hand: Card[],
+    discardPile: Card[],
+    handValue: number,
+    opponents: { handCount: number; score: number }[],
+    roundNumber: number,
+    canCallYaniv: boolean
+  ): number[] {
+    const features: number[] = [];
+
+    // Hand encoding (52-dim multi-hot)
+    const handEncoding = new Array(52).fill(0);
+    for (const card of hand) {
+      handEncoding[this.cardToIndex(card)] = 1;
+    }
+    features.push(...handEncoding);
+
+    // Top 3 discards (156-dim)
+    const discardEncoding = new Array(156).fill(0);
+    const topDiscards = discardPile.slice(-3).reverse();
+    for (let i = 0; i < topDiscards.length && i < 3; i++) {
+      const idx = i * 52 + this.cardToIndex(topDiscards[i]);
+      discardEncoding[idx] = 1;
+    }
+    features.push(...discardEncoding);
+
+    // Scalars (5-dim)
+    features.push(handValue / 100);
+    features.push(hand.length / 10);
+    features.push(discardPile.length / 52);
+    features.push(roundNumber / 20);
+    features.push(canCallYaniv ? 1 : 0);
+
+    // Opponent features (6-dim for up to 3 opponents)
+    for (let i = 0; i < 3; i++) {
+      if (i < opponents.length) {
+        features.push(opponents[i].handCount / 10);
+        features.push(opponents[i].score / 200);
+      } else {
+        features.push(0);
+        features.push(0);
+      }
+    }
+
+    return features;
+  }
+
+  /**
+   * Encode action
+   */
+  private encodeAction(
+    action: YanivAction,
+    hand: Card[],
+    drawableDiscard: Card | null
+  ): number[] {
+    const features: number[] = [];
+
+    // Action type one-hot (4-dim)
+    const actionType = new Array(4).fill(0);
+    if (action.type === 'yaniv') {
+      actionType[3] = 1;
+    } else {
+      actionType[0] = 1; // discard
+    }
+    features.push(...actionType);
+
+    // Draw source one-hot (2-dim)
+    const drawSource = new Array(2).fill(0);
+    if (action.drawSource === 'discard') {
+      drawSource[1] = 1;
+    } else {
+      drawSource[0] = 1;
+    }
+    features.push(...drawSource);
+
+    // Discard mask (52-dim)
+    const discardMask = new Array(52).fill(0);
+    if (action.discardCards) {
+      for (const card of action.discardCards) {
+        discardMask[this.cardToIndex(card)] = 1;
+      }
+    }
+    features.push(...discardMask);
+
+    // Scalar features (4-dim)
+    const discardCards = action.discardCards || [];
+    const discardCount = discardCards.length;
+    const discardValue = discardCards.reduce((sum, c) => sum + c.value, 0);
+
+    let resultValue: number;
+    if (action.type === 'yaniv') {
+      resultValue = CardUtils.getHandValue(hand);
+    } else {
+      const remaining = hand.filter(c =>
+        !discardCards.some(dc => CardUtils.areEqual(dc, c))
+      );
+      const drawValue = action.drawSource === 'discard' && drawableDiscard
+        ? drawableDiscard.value
+        : 7; // Average card value
+      resultValue = CardUtils.getHandValue(remaining) + drawValue;
+    }
+
+    features.push(discardCount / 5);
+    features.push(discardValue / 50);
+    features.push(resultValue / 100);
+    features.push(action.type === 'yaniv' ? 1 : 0);
+
+    return features;
+  }
+
+  /**
+   * Generate all legal actions
+   */
+  private generateLegalActions(
+    hand: Card[],
+    canCallYaniv: boolean,
+    canDrawFromDiscard: boolean
+  ): YanivAction[] {
+    const actions: YanivAction[] = [];
+
+    // Yaniv action
+    if (canCallYaniv) {
+      actions.push({ type: 'yaniv' });
+    }
+
+    // Generate all valid discard combinations
+    const discardCombos = this.getValidDiscardCombinations(hand);
+
+    for (const combo of discardCombos) {
+      // Draw from deck
+      actions.push({
+        type: 'discard',
+        discardCards: combo,
+        drawSource: 'deck'
+      });
+
+      // Draw from discard
+      if (canDrawFromDiscard) {
+        actions.push({
+          type: 'discard',
+          discardCards: combo,
+          drawSource: 'discard'
+        });
+      }
+    }
+
+    return actions;
+  }
+
+  /**
+   * Get all valid discard combinations
+   */
+  private getValidDiscardCombinations(hand: Card[]): Card[][] {
+    const combos: Card[][] = [];
+
+    // Singles
+    for (const card of hand) {
+      combos.push([card]);
+    }
+
+    // Sets (pairs, three-of-a-kind, etc.)
+    const byRank = new Map<string, Card[]>();
+    for (const card of hand) {
+      const existing = byRank.get(card.rank) || [];
+      existing.push(card);
+      byRank.set(card.rank, existing);
+    }
+
+    for (const cards of byRank.values()) {
+      if (cards.length >= 2) {
+        // Generate all subsets of size >= 2
+        for (let size = 2; size <= cards.length; size++) {
+          const subsets = this.getCombinations(cards, size);
+          combos.push(...subsets);
+        }
+      }
+    }
+
+    // Runs (3+ consecutive same suit)
+    const bySuit = new Map<string, Card[]>();
+    for (const card of hand) {
+      const existing = bySuit.get(card.suit) || [];
+      existing.push(card);
+      bySuit.set(card.suit, existing);
+    }
+
+    for (const cards of bySuit.values()) {
+      if (cards.length >= 3) {
+        const sorted = [...cards].sort((a, b) => a.value - b.value);
+        for (let start = 0; start < sorted.length; start++) {
+          const run: Card[] = [sorted[start]];
+          for (let next = start + 1; next < sorted.length; next++) {
+            if (sorted[next].value === run[run.length - 1].value + 1) {
+              run.push(sorted[next]);
+              if (run.length >= 3) {
+                combos.push([...run]);
+              }
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return combos;
+  }
+
+  private getCombinations<T>(arr: T[], size: number): T[][] {
+    if (size === 0) return [[]];
+    if (arr.length < size) return [];
+
+    const result: T[][] = [];
+    for (let i = 0; i <= arr.length - size; i++) {
+      const rest = this.getCombinations(arr.slice(i + 1), size - 1);
+      for (const combo of rest) {
+        result.push([arr[i], ...combo]);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Choose best action given game state
+   */
+  chooseAction(
+    hand: Card[],
+    discardPile: Card[],
+    opponents: { handCount: number; score: number }[],
+    roundNumber: number,
+    canCallYaniv: boolean,
+    drawableDiscard: Card | null
+  ): YanivAction {
+    const handValue = CardUtils.getHandValue(hand);
+    const canDrawFromDiscard = drawableDiscard !== null;
+
+    // Generate legal actions
+    const legalActions = this.generateLegalActions(
+      hand, canCallYaniv, canDrawFromDiscard
+    );
+
+    if (legalActions.length === 0) {
+      throw new Error('No legal actions available');
+    }
+
+    if (legalActions.length === 1) {
+      return legalActions[0];
+    }
+
+    // Encode state
+    const stateVec = this.encodeState(
+      hand, discardPile, handValue, opponents, roundNumber, canCallYaniv
+    );
+
+    // Score each action
+    let bestAction = legalActions[0];
+    let bestScore = -Infinity;
+
+    for (const action of legalActions) {
+      const actionVec = this.encodeAction(action, hand, drawableDiscard);
+      const input = [...stateVec, ...actionVec];
+      const score = this.forward(input);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestAction = action;
+      }
+    }
+
+    return bestAction;
+  }
+}
+
+/**
+ * Load model from JSON file
+ */
+export async function loadGAModel(jsonPath: string): Promise<GATrainedAI> {
+  const response = await fetch(jsonPath);
+  const modelJson = await response.json() as ModelConfig;
+  return new GATrainedAI(modelJson);
+}
+'''
+
+    with open(output_path, "w") as f:
+        f.write(ts_code)
+
+    print(f"TypeScript loader generated at {output_path}")
+
+
+def export_for_typescript(
+    genome_path: str,
+    output_dir: str,
+    model_name: str = "yaniv_model"
+) -> None:
+    """
+    Complete export pipeline for TypeScript deployment.
+
+    Args:
+        genome_path: Path to saved genome JSON
+        output_dir: Output directory
+        model_name: Name for the model files
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load genome
+    genome = Genome.load(genome_path)
+
+    # Export weights
+    weights_path = os.path.join(output_dir, f"{model_name}.json")
+    export_to_json(genome, weights_path)
+
+    # Generate TypeScript loader
+    loader_path = os.path.join(output_dir, f"GATrainedAI.ts")
+    generate_typescript_loader(loader_path)
+
+    print(f"\nExport complete!")
+    print(f"  Weights: {weights_path}")
+    print(f"  TypeScript: {loader_path}")
+    print(f"\nTo use in your TypeScript project:")
+    print(f"  1. Copy both files to your src/game/ directory")
+    print(f"  2. Import and use GATrainedAI class")
+
+
+def convert_old_model_format(
+    old_model_path: str,
+    output_path: str
+) -> None:
+    """
+    Convert old-format model (from existing training) to new format.
+    """
+    with open(old_model_path, "r") as f:
+        old_data = json.load(f)
+
+    # Old format has w1, b1, w2, b2 for a 2-layer network
+    # New format expects 3 layers for action-value network
+
+    # Check if it's the old format
+    if "w1" in old_data and "w2" in old_data:
+        print("Converting old 2-layer model format...")
+
+        # Get dimensions
+        w1 = np.array(old_data["w1"])
+        w2 = np.array(old_data["w2"])
+
+        # This is a simple conversion - the old model won't work well
+        # because it has different architecture, but we can export the format
+        export_data = {
+            "version": "0.9-converted",
+            "architecture": {
+                "type": "simple_mlp",
+                "input_dim": w1.shape[0],
+                "hidden_dim": w1.shape[1],
+                "output_dim": w2.shape[1]
+            },
+            "weights": {
+                "layer1": {
+                    "weight": old_data["w1"],
+                    "bias": old_data["b1"]
+                },
+                "layer2": {
+                    "weight": old_data["w2"],
+                    "bias": old_data["b2"]
+                }
+            },
+            "note": "Converted from old format - may not be compatible with new action-value network"
+        }
+
+        with open(output_path, "w") as f:
+            json.dump(export_data, f, indent=2)
+
+        print(f"Converted model saved to {output_path}")
+        print("Note: Old models use different architecture and may not work correctly.")
+    else:
+        print("Model format not recognized")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Export trained model to TypeScript")
+    parser.add_argument("genome_path", help="Path to saved genome JSON")
+    parser.add_argument("--output-dir", default="ts_export", help="Output directory")
+    parser.add_argument("--model-name", default="yaniv_model", help="Model name")
+
+    args = parser.parse_args()
+
+    export_for_typescript(args.genome_path, args.output_dir, args.model_name)
