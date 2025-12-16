@@ -162,13 +162,19 @@ export class PythonTrainedAI {
     }
     
     // Fallback: discard highest value card
+    if (player.hand.length === 0) {
+      // Edge case: empty hand - this shouldn't happen in normal gameplay
+      // but we handle it gracefully
+      return { action: 'draw', source: 'deck' };
+    }
+
     let highestCard = player.hand[0];
     for (const card of player.hand) {
       if (card.value > highestCard.value) {
         highestCard = card;
       }
     }
-    
+
     return {
       action: 'discard',
       cards: [highestCard]
