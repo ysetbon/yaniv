@@ -1,1 +1,13 @@
 node_modules
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+
+# Training artifacts
+ga_checkpoints/
+saved_networks/
+*.pkl
