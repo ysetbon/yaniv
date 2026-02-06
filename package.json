@@ -14,7 +14,9 @@
     "train:continue": "npx ts-node src/train-continue.ts",
     "train:alt": "node --loader tsx src/train-cli.ts",
     "train:ts": "node -r ts-node/register src/train-cli.ts",
-    "load-model": "node --loader tsx src/load-model.ts"
+    "load-model": "node --loader tsx src/load-model.ts",
+    "train:evolution-rl": "npx tsx src/train-evolution-rl.ts",
+    "train:evolution-rl:quick": "npx tsx src/train-evolution-rl.ts --quick"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
